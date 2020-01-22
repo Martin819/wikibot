@@ -3,7 +3,7 @@
 WIKIAPIURL="https://cs.wikipedia.org/w/api.php"
 WIKIURL="https://cs.wikipedia.org/wiki/"
 ENABLE="true"
-DEBUG="false"
+DEBUG="true"
 QUIET="false"
 
 USERNAMEPATH="config/username"
@@ -11,7 +11,7 @@ PASSWORDPATH="config/password"
 USERNAME="NotProvided"
 PASSWORD="NotProvided"
 LOGINTOKEN="NotProvided"
-LISTPAGELIMIT=500
+LISTPAGELIMIT=5
 LISTPAGECATEGORY="Kategorie%3A%C3%9Adr%C5%BEba%3A%C4%8Cl%C3%A1nky%20obsahuj%C3%ADc%C3%AD%20star%C3%A9%20symboly%20nebezpe%C4%8D%C3%AD"
 LISTPAGEURL="${WIKIAPIURL}?action=query&format=json&list=categorymembers&cmtitle=${LISTPAGECATEGORY}&cmlimit=${LISTPAGELIMIT}"
 LISTPAGEJSON="data/listpage.json"
@@ -29,7 +29,7 @@ CID=""
 GHS=""
 SYMBOLS=""
 NEWSYMBOLS=""
-TEST="false"
+TEST="true"
 
 #declare -A STAGEDPAGESARR
 
@@ -246,12 +246,18 @@ editpage() {
 
 getsmilesfromwiki() {
 	SMILES=$(cat $1 | grep -oP '(?<=SMILES\s=\s)\S+')
-	debug " Found SMILES: $SMILES"
+	if [ "$SMILES" == "" ]; then
+		SMILES=$(cat $1 | grep -oP '(?<=SMILES=)\S+')
+	fi
+	if [ $(echo $SMILES | grep -oP '<br>') ]; then
+		SMILES=$(echo $SMILES | grep -oP '\S+(?=<br>)')
+	fi
+	debug "Found SMILES: $SMILES"
 }
 
 getCIDbysmiles() {
 	getsmilesfromwiki $1
-	if [ SMILES != "" ]; then
+	if [ "$SMILES" != "" ]; then
 		CID=$(wget -qO- "${PUBCHEMAPIURL}${PUBCHEMPUG}smiles/$SMILES/cids/TXT")
 		debug "CID: $CID"
 	fi
@@ -263,14 +269,14 @@ getGHSbyCID() {
 	if [ "$CID" != "" ]; then
 		GHS=$(wget -qO- "${PUBCHEMAPIURL}${PUBCHEMPUGVIEW}${CID}/${PUBCHEMGHSPARAMS}")
 		echo "$GHS" > data/ghs.json
-		debug "GHS: $GHS" 
+#		debug "GHS: $GHS" 
 	fi
 }
 
 getSymbolsbyGHS() {
 	if [ "GHS" != "" ]; then
 		SYMBOLS=$(jq --raw-output ".Record.Section[].Section[].Section[].Information[].Value.StringWithMarkup[].Markup[].Extra" data/ghs.json)
-		debug "SYMBOLS: $SYMBOLS"
+		info "SYMBOLS: $SYMBOLS"
 	fi
 }
 
@@ -290,22 +296,31 @@ determineNewSymbols() {
 				NEWSYMBOLS=${NEWSYMBOLS}"{{GHS05}}" ;;
 			"Toxic" )
 				NEWSYMBOLS=${NEWSYMBOLS}"{{GHS06}}" ;;
-			"Harmful" )
+			"Acute Toxic" )
+				NEWSYMBOLS=${NEWSYMBOLS}"{{GHS06}}" ;;
+			"Irritant" )
 				NEWSYMBOLS=${NEWSYMBOLS}"{{GHS07}}" ;;
 			"Health hazard" )
 				NEWSYMBOLS=${NEWSYMBOLS}"{{GHS08}}" ;;
-			"Environmental hazard" )
+			"Environmental Hazard" )
 				NEWSYMBOLS=${NEWSYMBOLS}"{{GHS09}}" ;;
 		esac
 	done
-	info "Found new symbols to be places: ${NEWSYMBOLS}"
+	info "Found new symbols to be placed: ${NEWSYMBOLS}"
+}
+
+removeGHSSymbols() {
+	debug "Removing any already present GHS symbols"
+	perl -pi -e 's/symboly\snebezpečí\s?GHS\s?=\s.+(?=\n)/SYMBOLS_TO_REPLACE/g' $1
 }
 
 removeOldSymbols() {
-	perl -pi -e 's/symboly\snebezpečí\s=\s\S+(?=\n)/SYMBOLS_TO_REPLACE/g' $1
+	debug "Removing old symbols"
+	perl -pi -e 's/symboly\snebezpečí\s?=\s?.+(?=\n)/SYMBOLS_TO_REPLACE/g' $1
 }
 
 placeNewSymbols() {
+	debug "Placing new symbols"
 	perl -pi -e "s/SYMBOLS_TO_REPLACE/symboly nebezpečí GHS = ${NEWSYMBOLS}/g" $1
 }
 
@@ -319,24 +334,35 @@ getcategorymembers $LISTPAGEURL
 
 IFS=$'\n'
 for PAGE in $(cat $STAGEDPAGES | tr -d '\r')
+#for PAGE in "acetylaceton"
 do
 
 	getpagewikitext $PAGE
 	if [ "$STAGEDTEXT" != "" ]; then
 		getCIDbysmiles data/stagedtext.txt
-		getGHSbyCID $CID
-		getSymbolsbyGHS $GHS
-		determineNewSymbols
-		if [ ${#NEWSYMBOLS} > 0 ]; then
-			removeOldSymbols data/stagedtext.txt
-			placeNewSymbols data/stagedtext.txt
-			if [ $TEST = "true" ]; then
-				editpage $TESTPAGE
+		if [ "$SMILES" != "" ]; then
+			getGHSbyCID $CID
+			getSymbolsbyGHS $GHS
+			determineNewSymbols
+			debug "length: ${#NEWSYMBOLS}"
+			if (( ${#NEWSYMBOLS} > 0 )); then
+				removeOldSymbols data/stagedtext.txt
+				removeGHSSymbols data/stagedtext.txt
+				placeNewSymbols data/stagedtext.txt
+				debug $(cat data/stagedtext.txt)
+				if [ $TEST = "true" ]; then
+					editpage $TESTPAGE
+				else
+					editpage $PAGE
+				fi
+				read -n 1 -s -r -p "Press any key to continue"
 			else
-				editpage $PAGE
+				error "No new symbols. New symbols: $NEWSYMBOLS"
 			fi
+		else
+			error "No SMILES found. Found: $SMILES"
 		fi
-		cleanstaged
+		#cleanstaged
 	fi
 
 done
