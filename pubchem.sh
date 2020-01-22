@@ -3,7 +3,7 @@
 WIKIAPIURL="https://cs.wikipedia.org/w/api.php"
 WIKIURL="https://cs.wikipedia.org/wiki/"
 ENABLE="true"
-DEBUG="true"
+DEBUG="false"
 QUIET="false"
 
 USERNAMEPATH="config/username"
@@ -11,7 +11,7 @@ PASSWORDPATH="config/password"
 USERNAME="NotProvided"
 PASSWORD="NotProvided"
 LOGINTOKEN="NotProvided"
-LISTPAGELIMIT=1
+LISTPAGELIMIT=500
 LISTPAGECATEGORY="Kategorie%3A%C3%9Adr%C5%BEba%3A%C4%8Cl%C3%A1nky%20obsahuj%C3%ADc%C3%AD%20star%C3%A9%20symboly%20nebezpe%C4%8D%C3%AD"
 LISTPAGEURL="${WIKIAPIURL}?action=query&format=json&list=categorymembers&cmtitle=${LISTPAGECATEGORY}&cmlimit=${LISTPAGELIMIT}"
 LISTPAGEJSON="data/listpage.json"
@@ -29,6 +29,7 @@ CID=""
 GHS=""
 SYMBOLS=""
 NEWSYMBOLS=""
+TEST="false"
 
 #declare -A STAGEDPAGESARR
 
@@ -236,7 +237,7 @@ editpage() {
 			--compressed \
 			--data-urlencode "title=$1" \
 			--data-urlencode "nocreate=true" \
-			--data-urlencode "summary=TESTSUMMARY" \
+			--data-urlencode "summary=Nahrada symbolu nebezpeci za GHS" \
 			--data-urlencode "text=$(cat data/stagedtext.txt)" \
 			--data-urlencode "token=${EDITTOKEN}" \
 			--request "POST" "${WIKIAPIURL}?action=edit&format=json")
@@ -329,7 +330,11 @@ do
 		if [ ${#NEWSYMBOLS} > 0 ]; then
 			removeOldSymbols data/stagedtext.txt
 			placeNewSymbols data/stagedtext.txt
-			editpage $TESTPAGE
+			if [ $TEST = "true" ]; then
+				editpage $TESTPAGE
+			else
+				editpage $PAGE
+			fi
 		fi
 		cleanstaged
 	fi
