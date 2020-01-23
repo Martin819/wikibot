@@ -6,6 +6,8 @@ ENABLE="true"
 DEBUG="false"
 QUIET="false"
 
+BLACKLIST="Forfor fosfor"
+
 USERNAMEPATH="config/username"
 PASSWORDPATH="config/password"
 USERNAME="NotProvided"
@@ -18,10 +20,10 @@ LISTPAGEJSON="data/listpage.json"
 PUBCHEMAPIURL="https://pubchem.ncbi.nlm.nih.gov/rest/"
 PUBCHEMPUG="pug/compound/"
 PUBCHEMPUGVIEW="pug_view/data/compound/"
-PUBCHEMGHSPARAMS="/JSON?heading=GHS+Classification"
+PUBCHEMGHSPARAMS="JSON?heading=GHS+Classification"
 STAGEDPAGES=[]
 PAGETOUPLOAD="NotProvided"
-TESTPAGE="Wikipedista:Martin819/Pískoviště"
+TESTPAGE="Wikipedista:Martin819Bot/Pískoviště"
 DATEOFACCESS=$(date +%F)
 STAGEDWIKITEXT=""
 STAGEDTEXT=""
@@ -33,8 +35,10 @@ NEWSYMBOLS=""
 CAS=""
 REFERENCE=""
 CNAME=""
+GHSREQLINK=""
 AUTOMATIC="true"
 TEST="false"
+GETLISTOFREPL="false"
 
 #declare -A STAGEDPAGESARR
 
@@ -51,6 +55,7 @@ cleanstaged() {
 	CAS=""
 	REFERENCE=""
 	CNAME=""
+	GHSREQLINK=""
 }
 
 info() {
@@ -76,6 +81,9 @@ error() {
 
 mkdir config 2>/dev/null
 mkdir data 2>/dev/null
+touch data/failed
+touch data/empty
+touch data/successful
 cleanstaged
 
 if [[ ! -f "$USERNAMEPATH" ]]; then
@@ -279,7 +287,7 @@ getCID() {
 	else
 		getCASfromwiki $1
 		if [ "$CAS" != "" ]; then
-			CID=$(wget -qO- "${PUBCHEMAPIURL}${PUBCHEMPUG}cas/$CAS/cids/TXT")
+			CID=$(wget -qO- "${PUBCHEMAPIURL}${PUBCHEMPUG}name/$CAS/cids/TXT")
 			debug "CID: $CID"
 		else
 			CID=""
@@ -292,7 +300,9 @@ getCID() {
 
 getGHSbyCID() {
 	if [ "$CID" != "" ]; then
-		GHS=$(wget -qO- "${PUBCHEMAPIURL}${PUBCHEMPUGVIEW}${CID}/${PUBCHEMGHSPARAMS}")
+		GHSREQLINK="${PUBCHEMAPIURL}${PUBCHEMPUGVIEW}${CID}/${PUBCHEMGHSPARAMS}"
+		debug "GHS request link: ${GHSREQLINK}"
+		GHS=$(wget -qO- "${GHSREQLINK}")
 		echo "$GHS" > data/ghs.json
 #		debug "GHS: $GHS" 
 	fi
@@ -325,7 +335,7 @@ determineNewSymbols() {
 				NEWSYMBOLS=${NEWSYMBOLS}"{{GHS06}}" ;;
 			"Irritant" )
 				NEWSYMBOLS=${NEWSYMBOLS}"{{GHS07}}" ;;
-			"Health hazard" )
+			"Health Hazard" )
 				NEWSYMBOLS=${NEWSYMBOLS}"{{GHS08}}" ;;
 			"Environmental Hazard" )
 				NEWSYMBOLS=${NEWSYMBOLS}"{{GHS09}}" ;;
@@ -333,7 +343,7 @@ determineNewSymbols() {
 				warning "Found unknown Symbol: $SYMBOL."
 		esac
 	done
-	info "Found new symbols to be placed: ${NEWSYMBOLS}"
+	info "New symbols to be placed: ${NEWSYMBOLS}"
 }
 
 getEnglishCompoundNameFromPubChem() {
@@ -376,37 +386,63 @@ fi
 getcategorymembers $LISTPAGEURL
 
 IFS=$'\n'
-for PAGE in $(cat $STAGEDPAGES | tr -d '\r')
-#for PAGE in "acetylaceton"
-do
+if [ $GETLISTOFREPL = "true" ]; then
+	touch data/blah.txt
+	for PAGE in $(cat $STAGEDPAGES | tr -d '\r')
+	#for PAGE in "americium"
+	do
+		getpagewikitext $PAGE
+		BLAH=$(grep -1 "symboly" data/stagedtext.txt)
+		echo "$PAGE" >> data/blah.txt
+		echo "$BLAH" >> data/blah.txt
+		echo "------------" >> data/blah.txt
+		cleanstaged
+	done
+fi
 
-	getpagewikitext $PAGE
-	if [ "$STAGEDTEXT" != "" ]; then
-		getCID data/stagedtext.txt
-		if [ "$CID" != "" ]; then
-			getGHSbyCID $CID
-			getSymbolsbyGHS $GHS
-			determineNewSymbols
-			debug "length: ${#NEWSYMBOLS}"
-			if (( ${#NEWSYMBOLS} > 0 )); then
-				removeOldSymbols data/stagedtext.txt
-				removeGHSSymbols data/stagedtext.txt
-				placeNewSymbols data/stagedtext.txt
-				debug $(cat data/stagedtext.txt)
-				if [ $TEST = "true" ]; then
-					editpage $TESTPAGE
+for PAGE in $(cat $STAGEDPAGES | tr -d '\r')
+#for PAGE in "americium"
+do
+	if [[ ! $BLACKLIST =~ (^| )$x($| ) ]]; then
+		getpagewikitext $PAGE
+		if [ "$STAGEDTEXT" != "" ]; then
+			getCID data/stagedtext.txt
+			if [ "$CID" != "" ]; then
+				getGHSbyCID $CID
+				getEnglishCompoundNameFromPubChem
+				info "Identified as: $CNAME"
+				getSymbolsbyGHS $GHS
+				determineNewSymbols
+				debug "length: ${#NEWSYMBOLS}"
+				if (( ${#NEWSYMBOLS} > 0 )); then
+					removeOldSymbols data/stagedtext.txt
+					removeGHSSymbols data/stagedtext.txt
+					placeNewSymbols data/stagedtext.txt
+					debug $(cat data/stagedtext.txt)
+					if [ $TEST = "true" ]; then
+						editpage $TESTPAGE
+						echo "$PAGE | https://pubchem.ncbi.nlm.nih.gov/compound/$CID" >> data/successful
+						echo "$EDITREQUEST" >> data/successful
+					else
+						editpage $PAGE
+						echo "$PAGE | https://pubchem.ncbi.nlm.nih.gov/compound/$CID" >> data/successful
+						echo "$EDITREQUEST" >> data/successful
+					fi
+					if [ $AUTOMATIC != "true" ]; then
+						read -n 1 -s -r -p "Press any key to continue"
+					fi
 				else
-					editpage $PAGE
-				fi
-				if [ $AUTOMATIC != "true" ]; then
-					read -n 1 -s -r -p "Press any key to continue"
+					warning "No new symbols. New symbols: $NEWSYMBOLS"
+					echo "$PAGE | https://pubchem.ncbi.nlm.nih.gov/compound/$CID" >> data/empty
 				fi
 			else
-				error "No new symbols. New symbols: $NEWSYMBOLS"
+				warning "Not possible to get CID for SMILES: $SMILES or CAS: $CAS"
+				echo $PAGE >> data/failed
 			fi
-		else
-			error "No SMILES and no CAS found. SMILES: $SMILES -- CAS: $CAS"
+			cleanstaged
 		fi
+	else
+		info "Skipped $PAGE because it's blacklisted"
 		cleanstaged
 	fi
 	info "====DONE===="
