@@ -3,7 +3,7 @@
 WIKIAPIURL="https://cs.wikipedia.org/w/api.php"
 WIKIURL="https://cs.wikipedia.org/wiki/"
 ENABLE="true"
-DEBUG="false"
+DEBUG="true"
 QUIET="false"
 
 BLACKLIST="Forfor fosfor"
@@ -37,8 +37,8 @@ REFERENCE=""
 CNAME=""
 GHSREQLINK=""
 AUTOMATIC="true"
-TEST="false"
-GETLISTOFREPL="false"
+TEST="true"
+GETLISTOFREPL="true"
 
 #declare -A STAGEDPAGESARR
 
@@ -388,8 +388,8 @@ getcategorymembers $LISTPAGEURL
 IFS=$'\n'
 if [ $GETLISTOFREPL = "true" ]; then
 	touch data/blah.txt
-	for PAGE in $(cat $STAGEDPAGES | tr -d '\r')
-	#for PAGE in "americium"
+	for PAGE in $(cat $STAGEDPAGES | tr -d '\r' | tr ' ' '_')
+	#for PAGE in "arsenitan_sodný"
 	do
 		getpagewikitext $PAGE
 		BLAH=$(grep -1 "symboly" data/stagedtext.txt)
@@ -401,7 +401,7 @@ if [ $GETLISTOFREPL = "true" ]; then
 fi
 
 for PAGE in $(cat $STAGEDPAGES | tr -d '\r')
-#for PAGE in "americium"
+#for PAGE in "arsenitan_sodný"
 do
 	if [[ ! $BLACKLIST =~ (^| )$x($| ) ]]; then
 		getpagewikitext $PAGE
