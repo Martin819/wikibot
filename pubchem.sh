@@ -3,7 +3,7 @@
 WIKIAPIURL="https://cs.wikipedia.org/w/api.php"
 WIKIURL="https://cs.wikipedia.org/wiki/"
 ENABLE="true"
-DEBUG="true"
+DEBUG="false"
 QUIET="false"
 
 USERNAMEPATH="config/username"
@@ -11,7 +11,7 @@ PASSWORDPATH="config/password"
 USERNAME="NotProvided"
 PASSWORD="NotProvided"
 LOGINTOKEN="NotProvided"
-LISTPAGELIMIT=5
+LISTPAGELIMIT=500
 LISTPAGECATEGORY="Kategorie%3A%C3%9Adr%C5%BEba%3A%C4%8Cl%C3%A1nky%20obsahuj%C3%ADc%C3%AD%20star%C3%A9%20symboly%20nebezpe%C4%8D%C3%AD"
 LISTPAGEURL="${WIKIAPIURL}?action=query&format=json&list=categorymembers&cmtitle=${LISTPAGECATEGORY}&cmlimit=${LISTPAGELIMIT}"
 LISTPAGEJSON="data/listpage.json"
@@ -29,6 +29,8 @@ CID=""
 GHS=""
 SYMBOLS=""
 NEWSYMBOLS=""
+CAS=""
+AUTOMATIC="true"
 TEST="true"
 
 #declare -A STAGEDPAGESARR
@@ -43,6 +45,7 @@ cleanstaged() {
 	GHS=""
 	SYMBOLS=""
 	NEWSYMBOLS=""
+	CAS=""
 }
 
 info() {
@@ -255,15 +258,32 @@ getsmilesfromwiki() {
 	debug "Found SMILES: $SMILES"
 }
 
-getCIDbysmiles() {
+getCASfromwiki() {
+	CAS=$(cat $1 | grep -oP '(?<=CAS\s=\s)\S+')
+	if [ "$CAS" == "" ]; then
+		CAS=$(cat $1 | grep -oP '(?<=CAS=)\S+')
+	fi
+	debug "Found CAS: $CAS"
+}
+
+getCID() {
 	getsmilesfromwiki $1
 	if [ "$SMILES" != "" ]; then
 		CID=$(wget -qO- "${PUBCHEMAPIURL}${PUBCHEMPUG}smiles/$SMILES/cids/TXT")
 		debug "CID: $CID"
+	else
+		getCASfromwiki $1
+		if [ "$CAS" != "" ]; then
+			CID=$(wget -qO- "${PUBCHEMAPIURL}${PUBCHEMPUG}cas/$CAS/cids/TXT")
+			debug "CID: $CID"
+		else
+			CID=""
+		fi
 	fi
+
+	# TODO: Add more ways to obtain CID
 }
 
-# TODO: Add more ways to obtain CID
 
 getGHSbyCID() {
 	if [ "$CID" != "" ]; then
@@ -304,6 +324,8 @@ determineNewSymbols() {
 				NEWSYMBOLS=${NEWSYMBOLS}"{{GHS08}}" ;;
 			"Environmental Hazard" )
 				NEWSYMBOLS=${NEWSYMBOLS}"{{GHS09}}" ;;
+			*)
+				warning "Found unknown Symbol: $SYMBOL."
 		esac
 	done
 	info "Found new symbols to be placed: ${NEWSYMBOLS}"
@@ -339,8 +361,8 @@ do
 
 	getpagewikitext $PAGE
 	if [ "$STAGEDTEXT" != "" ]; then
-		getCIDbysmiles data/stagedtext.txt
-		if [ "$SMILES" != "" ]; then
+		getCID data/stagedtext.txt
+		if [ "$CID" != "" ]; then
 			getGHSbyCID $CID
 			getSymbolsbyGHS $GHS
 			determineNewSymbols
@@ -355,14 +377,16 @@ do
 				else
 					editpage $PAGE
 				fi
-				read -n 1 -s -r -p "Press any key to continue"
+				if [ $AUTOMATIC != "true" ]; then
+					read -n 1 -s -r -p "Press any key to continue"
+				fi
 			else
 				error "No new symbols. New symbols: $NEWSYMBOLS"
 			fi
 		else
-			error "No SMILES found. Found: $SMILES"
+			error "No SMILES and no CAS found. SMILES: $SMILES -- CAS: $CAS"
 		fi
 		#cleanstaged
 	fi
-
+	info "====DONE===="
 done
