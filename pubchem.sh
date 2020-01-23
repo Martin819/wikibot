@@ -22,6 +22,7 @@ PUBCHEMGHSPARAMS="/JSON?heading=GHS+Classification"
 STAGEDPAGES=[]
 PAGETOUPLOAD="NotProvided"
 TESTPAGE="Wikipedista:Martin819/Pískoviště"
+DATEOFACCESS=$(date +%F)
 STAGEDWIKITEXT=""
 STAGEDTEXT=""
 SMILES=""
@@ -30,8 +31,10 @@ GHS=""
 SYMBOLS=""
 NEWSYMBOLS=""
 CAS=""
+REFERENCE=""
+CNAME=""
 AUTOMATIC="true"
-TEST="true"
+TEST="false"
 
 #declare -A STAGEDPAGESARR
 
@@ -46,6 +49,8 @@ cleanstaged() {
 	SYMBOLS=""
 	NEWSYMBOLS=""
 	CAS=""
+	REFERENCE=""
+	CNAME=""
 }
 
 info() {
@@ -331,6 +336,20 @@ determineNewSymbols() {
 	info "Found new symbols to be placed: ${NEWSYMBOLS}"
 }
 
+getEnglishCompoundNameFromPubChem() {
+	if [ "GHS" != "" ]; then
+		CNAME=$(jq --raw-output ".Record.RecordTitle" data/ghs.json)
+		debug "COMPOUND NAME: $CNAME"
+	fi
+}
+
+addReference() {
+	debug "Adding reference"
+	getEnglishCompoundNameFromPubChem
+	DATEOFACCESS=$(date +%F)
+	REFERENCE="<ref name=pubchem_cid_${CID}>{{Citace elektronického periodika \| titul = ${CNAME} \| periodikum = pubchem.ncbi.nlm.nih.gov \| vydavatel = PubChem \| url = https:\/\/pubchem.ncbi.nlm.nih.gov\/compound\/${CID} \| jazyk = en \| datum přístupu = 2020-01-20 }}<\/ref>"
+}
+
 removeGHSSymbols() {
 	debug "Removing any already present GHS symbols"
 	perl -pi -e 's/symboly\snebezpečí\s?GHS\s?=\s.+(?=\n)/SYMBOLS_TO_REPLACE/g' $1
@@ -343,7 +362,9 @@ removeOldSymbols() {
 
 placeNewSymbols() {
 	debug "Placing new symbols"
-	perl -pi -e "s/SYMBOLS_TO_REPLACE/symboly nebezpečí GHS = ${NEWSYMBOLS}/g" $1
+	addReference
+	echo "$NEWSYMBOLS" > data/newsymbols.txt
+	perl -pi -e "s/SYMBOLS_TO_REPLACE/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}/g" $1
 }
 
 if [[ $ENABLE == "true" ]]; then
@@ -386,7 +407,7 @@ do
 		else
 			error "No SMILES and no CAS found. SMILES: $SMILES -- CAS: $CAS"
 		fi
-		#cleanstaged
+		cleanstaged
 	fi
 	info "====DONE===="
 done
