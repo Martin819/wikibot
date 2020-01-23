@@ -264,9 +264,9 @@ getsmilesfromwiki() {
 }
 
 getCASfromwiki() {
-	CAS=$(cat $1 | grep -oP '(?<=CAS\s=\s)\S+')
+	CAS=$(cat $1 | grep -oP '(?<=číslo\sCAS\s=\s)\S+')
 	if [ "$CAS" == "" ]; then
-		CAS=$(cat $1 | grep -oP '(?<=CAS=)\S+')
+		CAS=$(cat $1 | grep -oP '(?<=číslo\sCAS=)\S+')
 	fi
 	debug "Found CAS: $CAS"
 }
