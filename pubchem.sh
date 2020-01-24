@@ -3,7 +3,8 @@
 WIKIAPIURL="https://cs.wikipedia.org/w/api.php"
 WIKIURL="https://cs.wikipedia.org/wiki/"
 ENABLE="true"
-DEBUG="false"
+DEBUG="true"
+VERBOSE="true"
 QUIET="false"
 
 BLACKLIST="Forfor fosfor 1-aminopropan-2-on"
@@ -64,14 +65,20 @@ cleanstaged() {
 }
 
 info() {
-	if [ QUIET != "true" ]; then
+	if [ $QUIET != "true" ]; then
 		echo "[INFO   ] $1"
 	fi
 }
 
-debug() {
-	if [ DEBUG == "true" ]; then
+versbose() {
+	if [ $VERBOSE == "true" ]; then
 		echo "[ DEBUG ] $1"
+	fi
+}
+
+debug() {
+	if [ $DEBUG == "true" ]; then
+		echo "[VERBOSE] $1"
 	fi
 }
 
@@ -214,12 +221,12 @@ fetchwikilistpages() {
 	info "-----"
 	info "Requesting list of pages from ${1}"
     wget "${1}" -T 60 -O $LISTPAGEJSON >/dev/null 2>&1
-	debug "Got response: $(cat $LISTPAGEJSON)"
+	verbose "Got response: $(cat $LISTPAGEJSON)"
 }
 
 parsecategorymemebers() {
 	jq -r ".query.categorymembers[] | .title" $LISTPAGEJSON > $STAGEDPAGES
-	info "Found pages: $(cat ${STAGEDPAGES})"
+	debug "Found pages: $(cat ${STAGEDPAGES} | tr '\n' ' ')"
 }
 
 getpagewikitext() {
@@ -240,7 +247,7 @@ getpagewikitext() {
 	STAGEDTEXT=$(jq --raw-output '.parse.wikitext[]' data/wikitextrequest.json)
 	echo "$STAGEDTEXT" > data/stagedtext.txt
 	# iconv -f utf-8 -t ASCII//TRANSLIT data/stagedtext.txt data/stagedtextascii.txt
-	debug "Wikitext: ${STAGEDTEXT}"
+	verbose "Wikitext: ${STAGEDTEXT}"
 	# debug "ASCII: $(cat data/stagedtextascii.txt)"
 }
 
@@ -273,6 +280,15 @@ getsmilesfromwiki() {
 	fi
 	if [ $(echo $SMILES | grep -oP '<br>') ]; then
 		SMILES=$(echo $SMILES | grep -oP '\S+(?=<br>)')
+	fi
+	if [ $(echo $SMILES | grep -oP '<br\>') ]; then
+		SMILES=$(echo $SMILES | grep -oP '\S+(?=<br\>)')
+	fi
+	if [ $(echo $SMILES | grep -oP '<br \>') ]; then
+		SMILES=$(echo $SMILES | grep -oP '\S+(?=<br \>)')
+	fi
+	if [ $(echo $SMILES | grep -oP '<br') ]; then
+		SMILES=$(echo $SMILES | grep -oP '\S+(?=<br)')
 	fi
 	debug "Found SMILES: $SMILES"
 }
@@ -396,14 +412,12 @@ ${ORIGINALTEMP}/g" $1
 		addReference
 		ORIGINALTITLE="$(grep -P 'SMILES\s?=' $1)"
 		debug "Original title: $ORIGINALTITLE"
-		debug "REFERENCE: $REFERENCE"
 		perl -pi -e "s/SMILES\s?=.*(?=\n)/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}
 ${ORIGINALTITLE}/g" $1
 	elif [ $(grep -P 'vzhled\s?=' $1) ]; then
 		addReference
 		ORIGINALVZHLED="$(grep -P 'vzhled\s?=' $1)"
 		debug "Original vzhled: $ORIGINALVZHLED"
-		debug "REFERENCE: $REFERENCE"
 		perl -pi -e "s/vzhled\s?=.*(?=\n)/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}
 ${ORIGINALVZHLED}/g" $1
 	elif [ $(grep -P 'systematický\snázev\s?=' $1) ]; then
@@ -472,7 +486,7 @@ do
 						removeGHSSymbols data/stagedtext.txt
 						removeOldSymbols data/stagedtext.txt
 						placeNewSymbols data/stagedtext.txt
-						debug $(cat data/stagedtext.txt)
+						verbose $(cat data/stagedtext.txt)
 						if [ $TEST = "true" ]; then
 							commentCat data/stagedtext.txt
 							editpage $TESTPAGE
