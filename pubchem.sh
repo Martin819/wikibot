@@ -3,7 +3,7 @@
 WIKIAPIURL="https://cs.wikipedia.org/w/api.php"
 WIKIURL="https://cs.wikipedia.org/wiki/"
 ENABLE="true"
-DEBUG="true"
+DEBUG="false"
 QUIET="false"
 
 BLACKLIST="Forfor fosfor"
@@ -13,7 +13,7 @@ PASSWORDPATH="config/password"
 USERNAME="NotProvided"
 PASSWORD="NotProvided"
 LOGINTOKEN="NotProvided"
-LISTPAGELIMIT=500
+LISTPAGELIMIT=10
 LISTPAGECATEGORY="Kategorie%3A%C3%9Adr%C5%BEba%3A%C4%8Cl%C3%A1nky%20obsahuj%C3%ADc%C3%AD%20star%C3%A9%20symboly%20nebezpe%C4%8D%C3%AD"
 LISTPAGEURL="${WIKIAPIURL}?action=query&format=json&list=categorymembers&cmtitle=${LISTPAGECATEGORY}&cmlimit=${LISTPAGELIMIT}"
 LISTPAGEJSON="data/listpage.json"
@@ -23,7 +23,7 @@ PUBCHEMPUGVIEW="pug_view/data/compound/"
 PUBCHEMGHSPARAMS="JSON?heading=GHS+Classification"
 STAGEDPAGES=[]
 PAGETOUPLOAD="NotProvided"
-TESTPAGE="Wikipedista:Martin819Bot/Pískoviště"
+TESTPAGE="Wikipedista:Martin819/Pískoviště"
 DATEOFACCESS=$(date +%F)
 STAGEDWIKITEXT=""
 STAGEDTEXT=""
@@ -36,9 +36,11 @@ CAS=""
 REFERENCE=""
 CNAME=""
 GHSREQLINK=""
+ORIGINALTEMP=""
 AUTOMATIC="true"
-TEST="true"
-GETLISTOFREPL="true"
+TEST="false"
+GETLISTOFREPL="false"
+RETRY="false"
 
 #declare -A STAGEDPAGESARR
 
@@ -56,6 +58,7 @@ cleanstaged() {
 	REFERENCE=""
 	CNAME=""
 	GHSREQLINK=""
+	ORIGINALTEMP=""
 }
 
 info() {
@@ -242,6 +245,7 @@ getpagewikitext() {
 editpage() {
 	info "Uploading edit to page $1"
 	debug "Using token ${EDITTOKEN}"
+	#debug "Text to be pushed: $(cat data/stagedtext.txt)"
 	EDITREQUEST=$(curl -S \
 			--location \
 			--cookie $cj \
@@ -362,19 +366,35 @@ addReference() {
 
 removeGHSSymbols() {
 	debug "Removing any already present GHS symbols"
-	perl -pi -e 's/symboly\snebezpečí\s?GHS\s?=\s.+(?=\n)/SYMBOLS_TO_REPLACE/g' $1
+	perl -pi -e 's/symboly\snebezpečí\s?GHS\s?=\s?.+(?=\n)/SYMBOLS_TO_REPLACE/g' $1
 }
 
 removeOldSymbols() {
 	debug "Removing old symbols"
-	perl -pi -e 's/symboly\snebezpečí\s?=\s?.+(?=\n)/SYMBOLS_TO_REPLACE/g' $1
+	if  grep "SYMBOLS_TO_REPLACE" $1; then
+		perl -pi -e 's/symboly\snebezpečí\s?=\s?.+(?=\n)/symboly nebezpečí =/g' $1
+	else
+		perl -pi -e 's/symboly\snebezpečí\s?=\s?.+(?=\n)/SYMBOLS_TO_REPLACE/g' $1
+	fi
 }
 
 placeNewSymbols() {
 	debug "Placing new symbols"
-	addReference
-	echo "$NEWSYMBOLS" > data/newsymbols.txt
-	perl -pi -e "s/SYMBOLS_TO_REPLACE/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}/g" $1
+	if  grep "SYMBOLS_TO_REPLACE" $1; then
+		addReference
+		perl -pi -e "s/SYMBOLS_TO_REPLACE/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}/g" $1
+	else
+		addReference
+		ORIGINALTEMP="$(grep -P 'teplota\svzplanutí\s?=' $1)"
+		debug "Original temp: $ORIGINALTEMP"
+		perl -pi -e "s/teplota\svzplanutí\s?=.*(?=\n)/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}
+		${ORIGINALTEMP}/g" $1
+	fi
+}
+
+commentCat() {
+	debug "Commenting categories"
+	perl -pi -e "s/\[\[Kategorie.+(?=\]\])/\[\[nocat/g" $1
 }
 
 if [[ $ENABLE == "true" ]]; then
@@ -401,7 +421,7 @@ if [ $GETLISTOFREPL = "true" ]; then
 fi
 
 for PAGE in $(cat $STAGEDPAGES | tr -d '\r')
-#for PAGE in "arsenitan_sodný"
+#for PAGE in "1-aminopropan-2-ol"
 do
 	if [[ ! $BLACKLIST =~ (^| )$x($| ) ]]; then
 		getpagewikitext $PAGE
@@ -415,11 +435,12 @@ do
 				determineNewSymbols
 				debug "length: ${#NEWSYMBOLS}"
 				if (( ${#NEWSYMBOLS} > 0 )); then
-					removeOldSymbols data/stagedtext.txt
 					removeGHSSymbols data/stagedtext.txt
+					removeOldSymbols data/stagedtext.txt
 					placeNewSymbols data/stagedtext.txt
 					debug $(cat data/stagedtext.txt)
 					if [ $TEST = "true" ]; then
+						commentCat data/stagedtext.txt
 						editpage $TESTPAGE
 						echo "$PAGE | https://pubchem.ncbi.nlm.nih.gov/compound/$CID" >> data/successful
 						echo "$EDITREQUEST" >> data/successful
