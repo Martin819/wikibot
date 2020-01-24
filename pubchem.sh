@@ -37,8 +37,11 @@ CAS=""
 REFERENCE=""
 CNAME=""
 GHSREQLINK=""
-ORIGINALTEMP=""
+ORIGINALR=""
+ORIGINALS=""
 ORIGINALTITLE=""
+ORIGINALVZHLED=""
+ORIGINALSYSNAME=""
 AUTOMATIC="false"
 TEST="false"
 GETLISTOFREPL="false"
@@ -60,8 +63,11 @@ cleanstaged() {
 	REFERENCE=""
 	CNAME=""
 	GHSREQLINK=""
-	ORIGINALTEMP=""
+	ORIGINALR=""
+	ORIGINALS=""
 	ORIGINALTITLE=""
+	ORIGINALVZHLED=""
+	ORIGINALSYSNAME=""
 }
 
 info() {
@@ -401,12 +407,18 @@ placeNewSymbols() {
 	if  grep "SYMBOLS_TO_REPLACE" $1; then
 		addReference
 		perl -pi -e "s/SYMBOLS_TO_REPLACE/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}/g" $1
-	elif [ $(grep -P 'teplota\svzplanutí\s?=' $1) ]; then
+	elif [ $(grep -P 'R-věty\s?=' $1) ]; then
 		addReference
-		ORIGINALTEMP="$(grep -P 'teplota\svzplanutí\s?=' $1)"
-		debug "Original temp: $ORIGINALTEMP"
-		perl -pi -e "s/teplota\svzplanutí\s?=.*(?=\n)/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}
-${ORIGINALTEMP}/g" $1
+		ORIGINALR="$(grep -P 'R=věty\s?=' $1)"
+		debug "Original R: $ORIGINALR"
+		perl -pi -e "s/R=věty\s?=.*(?=\n)/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}
+${ORIGINALR}/g" $1
+	elif [ $(grep -P 'S-věty\s?=' $1) ]; then
+		addReference
+		ORIGINALS="$(grep -P 'S=věty\s?=' $1)"
+		debug "Original S: $ORIGINALS"
+		perl -pi -e "s/S=věty\s?=.*(?=\n)/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}
+${ORIGINALS}/g" $1
 	#elif [ $(grep -P '' $1) ]; then
 	elif [ $(grep -P 'SMILES\s?=' $1) ]; then
 		addReference
