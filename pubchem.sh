@@ -4,7 +4,7 @@ WIKIAPIURL="https://cs.wikipedia.org/w/api.php"
 WIKIURL="https://cs.wikipedia.org/wiki/"
 ENABLE="true"
 DEBUG="true"
-VERBOSE="true"
+VERBOSE="false"
 QUIET="false"
 
 BLACKLIST="Forfor fosfor 1-aminopropan-2-on"
@@ -70,15 +70,15 @@ info() {
 	fi
 }
 
-versbose() {
+verbose() {
 	if [ $VERBOSE == "true" ]; then
-		echo "[ DEBUG ] $1"
+		echo "[VERBOSE] $1"
 	fi
 }
 
 debug() {
 	if [ $DEBUG == "true" ]; then
-		echo "[VERBOSE] $1"
+		echo "[ DEBUG ] $1"
 	fi
 }
 
