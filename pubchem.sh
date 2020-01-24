@@ -3,17 +3,17 @@
 WIKIAPIURL="https://cs.wikipedia.org/w/api.php"
 WIKIURL="https://cs.wikipedia.org/wiki/"
 ENABLE="true"
-DEBUG="true"
+DEBUG="false"
 QUIET="false"
 
-BLACKLIST="Forfor fosfor"
+BLACKLIST="Forfor fosfor 1-aminopropan-2-on"
 
 USERNAMEPATH="config/username"
 PASSWORDPATH="config/password"
 USERNAME="NotProvided"
 PASSWORD="NotProvided"
 LOGINTOKEN="NotProvided"
-LISTPAGELIMIT=10
+LISTPAGELIMIT=50
 LISTPAGECATEGORY="Kategorie%3A%C3%9Adr%C5%BEba%3A%C4%8Cl%C3%A1nky%20obsahuj%C3%ADc%C3%AD%20star%C3%A9%20symboly%20nebezpe%C4%8D%C3%AD"
 LISTPAGEURL="${WIKIAPIURL}?action=query&format=json&list=categorymembers&cmtitle=${LISTPAGECATEGORY}&cmlimit=${LISTPAGELIMIT}"
 LISTPAGEJSON="data/listpage.json"
@@ -70,7 +70,7 @@ info() {
 }
 
 debug() {
-	if [ DEBUG="true" ]; then
+	if [ DEBUG == "true" ]; then
 		echo "[ DEBUG ] $1"
 	fi
 }
@@ -368,15 +368,15 @@ addReference() {
 
 removeGHSSymbols() {
 	debug "Removing any already present GHS symbols"
-	perl -pi -e 's/symboly\snebezpečí\s?GHS\s?=\s?.+(?=\n)/SYMBOLS_TO_REPLACE/g' $1
+	perl -pi -e 's/symboly\snebezpečí\s?GHS\s?=\s?(?=\n)/SYMBOLS_TO_REPLACE/g' $1
 }
 
 removeOldSymbols() {
 	debug "Removing old symbols"
 	if  grep "SYMBOLS_TO_REPLACE" $1; then
-		perl -pi -e 's/symboly\snebezpečí\s?=\s?.+(?=\n)/symboly nebezpečí =/g' $1
+		perl -pi -e 's/symboly\snebezpečí\s?=\s?(?=\n)/symboly nebezpečí =/g' $1
 	else
-		perl -pi -e 's/symboly\snebezpečí\s?=\s?.+(?=\n)/SYMBOLS_TO_REPLACE/g' $1
+		perl -pi -e 's/symboly\snebezpečí\s?=\s?(?=\n)/SYMBOLS_TO_REPLACE/g' $1
 	fi
 }
 
@@ -399,7 +399,19 @@ ${ORIGINALTEMP}/g" $1
 		debug "REFERENCE: $REFERENCE"
 		perl -pi -e "s/SMILES\s?=.*(?=\n)/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}
 ${ORIGINALTITLE}/g" $1
-		debug "Replace done"
+	elif [ $(grep -P 'vzhled\s?=' $1) ]; then
+		addReference
+		ORIGINALVZHLED="$(grep -P 'vzhled\s?=' $1)"
+		debug "Original vzhled: $ORIGINALVZHLED"
+		debug "REFERENCE: $REFERENCE"
+		perl -pi -e "s/vzhled\s?=.*(?=\n)/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}
+${ORIGINALVZHLED}/g" $1
+	elif [ $(grep -P 'systematický\snázev\s?=' $1) ]; then
+		addReference
+		ORIGINALSYSNAME="$(grep -P 'systematický\snázev\s?=' $1)"
+		debug "Original sysname: $ORIGINALSYSNAME"
+		perl -pi -e "s/systematický\snázev\s?=.*(?=\n)/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}
+${ORIGINALSYSNAME}/g" $1
 # 	else
 # 		addReference
 # 		ORIGINALTITLE=$(grep -Pzao "\|([^\|][\s\S])+?(?=}})" $1)
@@ -441,8 +453,8 @@ if [ $GETLISTOFREPL = "true" ]; then
 	done
 fi
 
-#for PAGE in $(cat $STAGEDPAGES | tr -d '\r')
-for PAGE in "1-aminopropan-2-on"
+for PAGE in $(cat $STAGEDPAGES | tr -d '\r')
+#for PAGE in "1-aminopropan-2-on"
 do
 	if [[ ! $BLACKLIST =~ (^| )$x($| ) ]]; then
 		getpagewikitext $PAGE
