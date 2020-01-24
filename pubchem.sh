@@ -3,7 +3,7 @@
 WIKIAPIURL="https://cs.wikipedia.org/w/api.php"
 WIKIURL="https://cs.wikipedia.org/wiki/"
 ENABLE="true"
-DEBUG="false"
+DEBUG="true"
 QUIET="false"
 
 BLACKLIST="Forfor fosfor"
@@ -37,7 +37,8 @@ REFERENCE=""
 CNAME=""
 GHSREQLINK=""
 ORIGINALTEMP=""
-AUTOMATIC="true"
+ORIGINALTITLE=""
+AUTOMATIC="false"
 TEST="false"
 GETLISTOFREPL="false"
 RETRY="false"
@@ -59,6 +60,7 @@ cleanstaged() {
 	CNAME=""
 	GHSREQLINK=""
 	ORIGINALTEMP=""
+	ORIGINALTITLE=""
 }
 
 info() {
@@ -257,7 +259,7 @@ editpage() {
 			--compressed \
 			--data-urlencode "title=$1" \
 			--data-urlencode "nocreate=true" \
-			--data-urlencode "summary=Nahrada symbolu nebezpeci za GHS" \
+			--data-urlencode "summary=Nahrada symbolu nebezpeci za GHS a standardizace." \
 			--data-urlencode "text=$(cat data/stagedtext.txt)" \
 			--data-urlencode "token=${EDITTOKEN}" \
 			--request "POST" "${WIKIAPIURL}?action=edit&format=json")
@@ -383,12 +385,31 @@ placeNewSymbols() {
 	if  grep "SYMBOLS_TO_REPLACE" $1; then
 		addReference
 		perl -pi -e "s/SYMBOLS_TO_REPLACE/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}/g" $1
-	else
+	elif [ $(grep -P 'teplota\svzplanutí\s?=' $1) ]; then
 		addReference
 		ORIGINALTEMP="$(grep -P 'teplota\svzplanutí\s?=' $1)"
 		debug "Original temp: $ORIGINALTEMP"
 		perl -pi -e "s/teplota\svzplanutí\s?=.*(?=\n)/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}
-		${ORIGINALTEMP}/g" $1
+${ORIGINALTEMP}/g" $1
+	#elif [ $(grep -P '' $1) ]; then
+	elif [ $(grep -P 'SMILES\s?=' $1) ]; then
+		addReference
+		ORIGINALTITLE="$(grep -P 'SMILES\s?=' $1)"
+		debug "Original title: $ORIGINALTITLE"
+		debug "REFERENCE: $REFERENCE"
+		perl -pi -e "s/SMILES\s?=.*(?=\n)/symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}
+${ORIGINALTITLE}/g" $1
+		debug "Replace done"
+# 	else
+# 		addReference
+# 		ORIGINALTITLE=$(grep -Pzao "\|([^\|][\s\S])+?(?=}})" $1)
+# 		#ORIGINALTITLE=$(awk "/\}\}\[\\s\\S\]\+\?\(\?=\\'\{3\}\)/")
+# 		debug "ORIGINAL TITLE: ${ORIGINALTITLE}"
+# 		#PERL=$(perl -0pi -e "s/}}[\s\S]+?(?=\'{3})/BLAHBLAH/" $1)
+# 		#echo "PERL: $PERL"
+# 		perl -0pi -e "s/}}[\s\S]+?(?=\'{3})/| symboly nebezpečí GHS = ${NEWSYMBOLS}${REFERENCE}
+# ${ORIGINALTITLE}/g" $1
+# 		debug "Replaced done"
 	fi
 }
 
@@ -420,45 +441,49 @@ if [ $GETLISTOFREPL = "true" ]; then
 	done
 fi
 
-for PAGE in $(cat $STAGEDPAGES | tr -d '\r')
-#for PAGE in "1-aminopropan-2-ol"
+#for PAGE in $(cat $STAGEDPAGES | tr -d '\r')
+for PAGE in "1-aminopropan-2-on"
 do
 	if [[ ! $BLACKLIST =~ (^| )$x($| ) ]]; then
 		getpagewikitext $PAGE
 		if [ "$STAGEDTEXT" != "" ]; then
 			getCID data/stagedtext.txt
-			if [ "$CID" != "" ]; then
-				getGHSbyCID $CID
-				getEnglishCompoundNameFromPubChem
-				info "Identified as: $CNAME"
-				getSymbolsbyGHS $GHS
-				determineNewSymbols
-				debug "length: ${#NEWSYMBOLS}"
-				if (( ${#NEWSYMBOLS} > 0 )); then
-					removeGHSSymbols data/stagedtext.txt
-					removeOldSymbols data/stagedtext.txt
-					placeNewSymbols data/stagedtext.txt
-					debug $(cat data/stagedtext.txt)
-					if [ $TEST = "true" ]; then
-						commentCat data/stagedtext.txt
-						editpage $TESTPAGE
-						echo "$PAGE | https://pubchem.ncbi.nlm.nih.gov/compound/$CID" >> data/successful
-						echo "$EDITREQUEST" >> data/successful
+			if [ ! $(grep '<ref name=pubchem_cid_' data/stagedtext.txt) ]; then
+				if [ "$CID" != "" ]; then
+					getGHSbyCID $CID
+					getEnglishCompoundNameFromPubChem
+					info "Identified as: $CNAME"
+					getSymbolsbyGHS $GHS
+					determineNewSymbols
+					debug "length: ${#NEWSYMBOLS}"
+					if (( ${#NEWSYMBOLS} > 0 )); then
+						removeGHSSymbols data/stagedtext.txt
+						removeOldSymbols data/stagedtext.txt
+						placeNewSymbols data/stagedtext.txt
+						debug $(cat data/stagedtext.txt)
+						if [ $TEST = "true" ]; then
+							commentCat data/stagedtext.txt
+							editpage $TESTPAGE
+							echo "$PAGE | https://pubchem.ncbi.nlm.nih.gov/compound/$CID" >> data/successful
+							echo "$EDITREQUEST" >> data/successful
+						else
+							editpage $PAGE
+							echo "$PAGE | https://pubchem.ncbi.nlm.nih.gov/compound/$CID" >> data/successful
+							echo "$EDITREQUEST" >> data/successful
+						fi
+						if [ $AUTOMATIC != "true" ]; then
+							read -n 1 -s -r -p "Press any key to continue"
+						fi
 					else
-						editpage $PAGE
-						echo "$PAGE | https://pubchem.ncbi.nlm.nih.gov/compound/$CID" >> data/successful
-						echo "$EDITREQUEST" >> data/successful
-					fi
-					if [ $AUTOMATIC != "true" ]; then
-						read -n 1 -s -r -p "Press any key to continue"
+						warning "No new symbols. New symbols: $NEWSYMBOLS"
+						echo "$PAGE | https://pubchem.ncbi.nlm.nih.gov/compound/$CID" >> data/empty
 					fi
 				else
-					warning "No new symbols. New symbols: $NEWSYMBOLS"
-					echo "$PAGE | https://pubchem.ncbi.nlm.nih.gov/compound/$CID" >> data/empty
+					warning "Not possible to get CID for SMILES: $SMILES or CAS: $CAS"
+					echo $PAGE >> data/failed
 				fi
 			else
-				warning "Not possible to get CID for SMILES: $SMILES or CAS: $CAS"
-				echo $PAGE >> data/failed
+				info "Skipping $PAGE because it's been already fixed before"
 			fi
 			cleanstaged
 		fi
