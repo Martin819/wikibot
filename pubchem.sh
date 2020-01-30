@@ -42,8 +42,9 @@ ORIGINALS=""
 ORIGINALTITLE=""
 ORIGINALVZHLED=""
 ORIGINALSYSNAME=""
+INFOBOX=""
 AUTOMATIC="false"
-TEST="false"
+TEST="true"
 GETLISTOFREPL="false"
 RETRY="false"
 
@@ -53,6 +54,7 @@ cleanstaged() {
 	rm -f data/wikitextrequest.json 2>/dev/null
 	rm -f data/stagedtext.txt 2>/dev/null
 	rm -f data/ghs.json 2>/dev/null
+	rm -f data/infobox.txt 2>/dev/null
 	STAGEDTEXT=""
 	SMILES=""
 	CID=""
@@ -68,6 +70,7 @@ cleanstaged() {
 	ORIGINALTITLE=""
 	ORIGINALVZHLED=""
 	ORIGINALSYSNAME=""
+	INFOBOX=""
 }
 
 info() {
@@ -381,6 +384,19 @@ getEnglishCompoundNameFromPubChem() {
 	fi
 }
 
+getInfobox() {
+	debug "Getting infobox"
+	INFOBOX="$(grep -Pzo '(?=\{Infobox)(\{([^{}]|(?1))*\})' $1)"
+	echo $INFOBOX > data/infobox.txt
+	debug "Parsed infobox: $INFOBOX"
+}
+
+replaceInfobox() {
+	debug "Replacing Infobox"
+	INFOBOX=$(cat $2)
+	perl -pi -e "s/(?=\{Infobox)(\{([^{}]|(?1))*\})/${INFOBOX}/g" $1
+}
+
 addReference() {
 	debug "Adding reference"
 	getEnglishCompoundNameFromPubChem
@@ -390,15 +406,15 @@ addReference() {
 
 removeGHSSymbols() {
 	debug "Removing any already present GHS symbols"
-	perl -pi -e 's/symboly\snebezpečí\s?GHS\s?=\s?(?=\n)/SYMBOLS_TO_REPLACE/g' $1
+	perl -pi -e 's/symboly\snebezpečí\s?GHS\s?=\s?.*(?<=\n)/SYMBOLS_TO_REPLACE/g' $1
 }
 
 removeOldSymbols() {
 	debug "Removing old symbols"
 	if  grep "SYMBOLS_TO_REPLACE" $1; then
-		perl -pi -e 's/symboly\snebezpečí\s?=\s?(?=\n)/symboly nebezpečí =/g' $1
+		perl -pi -e 's/symboly\snebezpečí\s?=\s?.*(?<=\n)/symboly nebezpečí =/g' $1
 	else
-		perl -pi -e 's/symboly\snebezpečí\s?=\s?(?=\n)/SYMBOLS_TO_REPLACE/g' $1
+		perl -pi -e 's/symboly\snebezpečí\s?=\s?.*(?<=\n)/SYMBOLS_TO_REPLACE/g' $1
 	fi
 }
 
@@ -480,7 +496,7 @@ if [ $GETLISTOFREPL = "true" ]; then
 fi
 
 for PAGE in $(cat $STAGEDPAGES | tr -d '\r')
-#for PAGE in "1-aminopropan-2-on"
+#for PAGE in "2,4-Dinitroanisol"
 do
 	if [[ ! $BLACKLIST =~ (^| )$x($| ) ]]; then
 		getpagewikitext $PAGE
@@ -495,9 +511,11 @@ do
 					determineNewSymbols
 					debug "length: ${#NEWSYMBOLS}"
 					if (( ${#NEWSYMBOLS} > 0 )); then
-						removeGHSSymbols data/stagedtext.txt
-						removeOldSymbols data/stagedtext.txt
-						placeNewSymbols data/stagedtext.txt
+						getInfobox data/stagedtext.txt
+						removeGHSSymbols data/infobox.txt
+						removeOldSymbols data/infobox.txt
+						placeNewSymbols data/infobox.txt
+						replaceInfobox data/stagedtext.txt data/infobox.txt
 						verbose $(cat data/stagedtext.txt)
 						if [ $TEST = "true" ]; then
 							commentCat data/stagedtext.txt
