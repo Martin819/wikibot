@@ -17,6 +17,7 @@ import subprocess
 import ast
 import mwparserfromhell
 from pywikibot import textlib
+from datetime import date
 
 templateToFind = 'Infobox - chemická sloučenina'
 
@@ -87,7 +88,7 @@ def trimInfobox(infobox):
 def convertToDict(infobox):
     newInfobox = {}
     for item in infobox:
-        newInfobox[str(item.name).strip()] = str(item.value).strip()
+        newInfobox[str(item.name)] = str(item.value)
     return newInfobox
 
 def getInfobox(pageTitle):
@@ -231,7 +232,7 @@ def getNewSymbols(data, dataType):
             for word in ghsWords:
                 if word != None:
                     newSymbols.append(getNewSymbol(word))
-            newSymbols = list(filter(None, set(newSymbols)))
+            newSymbols = sorted(list(filter(None, set(newSymbols)))) #Remove duplicities converting to set, filter out epty strings and sort
             return "".join(newSymbols)
         else:
             return ""
@@ -247,15 +248,16 @@ def getInfoboxOrder(key):
         return order.index(key)
 
 def sortInfobox(data):
-    keyOrder = {k:v for v,k in enumerate(['název', 'obrázek', 'velikost obrázku', 'popisek', 'obrázek2', 'velikost obrázku2', 'popisek2', 'obrázek3', 'velikost obrázku3', 'popisek3', 'systematický název', 'triviální název', 'ostatní názvy', 'latinský název', 'anglický název', 'německý název', 'funkční vzorec', 'sumární vzorec', 'vzhled', 'číslo CAS', 'další čísla CAS', 'číslo EINECS', 'indexové číslo', 'číslo EC', 'PubChem', 'ChEBI', 'UN kód', 'SMILES', 'InChI', 'číslo RTECS', 'molární hmotnost', 'molární koncentrace', 'molární objem', 'teplota tání', 'teplota varu', 'teplota sublimace', 'teplota rozkladu', 'teplota změny modifikace', 'teplota skelného přechodu', 'teplota dehydratace', 'hustota', 'viskozita', 'dynamický viskozitní koeficient', 'kinematický viskozitní koeficient', 'index lomu', 'tvrdost', 'kritická teplota', 'kritický tlak', 'kritická hustota', 'teplota trojného bodu', 'tlak trojného bodu', 'pKa', 'pKb', 'autoionizační konstanta', 'rozpustnost', 'rozpustnost polární', 'rozpustnost nepolární', 'součin rozpustnosti', 'parametr rozpustnosti', 'ebulioskopická konstanta', 'kryoskopická konstanta', 'relativní permitivita', 'tlak páry', 'Van der Waalsovy konstanty', 'izoelektrický bod', 'součinitel elektrické vodivosti', 'součinitel tepelné vodivosti', 'součinitel elektrického odporu', 'součinitel délkové roztažnosti', 'součinitel objemové roztažnosti', 'měrná magnetická susceptibilita', 'měrná vodivost', 'měrný elektrický odpor', 'ionizační energie', 'povrchové napětí', 'průměrný výskyt', 'rychlost zvuku', 'optická otáčivost', 'krystalová struktura', 'hrana mřížky', 'koordinační geometrie', 'tvar molekuly', 'dipólový moment', 'standardní slučovací entalpie', 'standardní molární spalná entalpie', 'entalpie tání', 'entalpie varu', 'entalpie rozpouštění', 'entalpie sublimace', 'entalpie změny modifikace', 'standardní molární entropie', 'standardní slučovací Gibbsova energie', 'měrné teplo', 'izobarické měrné teplo', 'izochorické měrné teplo', 'symboly nebezpečí GHS', 'H-věty', 'P-věty', 'symboly nebezpečí', 'R-věty', 'S-věty', 'NFPA 704', 'zdraví', 'hořlavost', 'reaktivita', 'ostatní rizika', 'teplota vzplanutí', 'teplota hoření', 'teplota vznícení', 'meze výbušnosti'])}
+    keyOrder = {k:v for v,k in enumerate(['název', ' název ', ' název', 'název ', 'obrázek', ' obrázek ', ' obrázek', 'obrázek ', 'velikost obrázku', ' velikost obrázku ', ' velikost obrázku', 'velikost obrázku ', 'popisek', ' popisek ', ' popisek', 'popisek ', 'obrázek2', ' obrázek2 ', ' obrázek2', 'obrázek2 ', 'velikost obrázku2', ' velikost obrázku2 ', ' velikost obrázku2', 'velikost obrázku2 ', 'popisek2', ' popisek2 ', ' popisek2', 'popisek2 ', 'obrázek3', ' obrázek3 ', ' obrázek3', 'obrázek3 ', 'velikost obrázku3', ' velikost obrázku3 ', ' velikost obrázku3', 'velikost obrázku3 ', 'popisek3', ' popisek3 ', ' popisek3', 'popisek3 ', 'systematický název', ' systematický název ', ' systematický název', 'systematický název ', 'triviální název', ' triviální název ', ' triviální název', 'triviální název ', 'ostatní názvy', ' ostatní názvy ', ' ostatní názvy', 'ostatní názvy ', 'latinský název', ' latinský název ', ' latinský název', 'latinský název ', 'anglický název', ' anglický název ', ' anglický název', 'anglický název ', 'německý název', ' německý název ', ' německý název', 'německý název ', 'funkční vzorec', ' funkční vzorec ', ' funkční vzorec', 'funkční vzorec ', 'sumární vzorec', ' sumární vzorec ', ' sumární vzorec', 'sumární vzorec ', 'vzhled', ' vzhled ', ' vzhled', 'vzhled ', 'číslo CAS', ' číslo CAS ', ' číslo CAS', 'číslo CAS ', 'další čísla CAS', ' další čísla CAS ', ' další čísla CAS', 'další čísla CAS ', 'číslo EINECS', ' číslo EINECS ', ' číslo EINECS', 'číslo EINECS ', 'indexové číslo', ' indexové číslo ', ' indexové číslo', 'indexové číslo ', 'číslo EC', ' číslo EC ', ' číslo EC', 'číslo EC ', 'PubChem', ' PubChem ', ' PubChem', 'PubChem ', 'ChEBI', ' ChEBI ', ' ChEBI', 'ChEBI ', 'UN kód', ' UN kód ', ' UN kód', 'UN kód ', 'SMILES', ' SMILES ', ' SMILES', 'SMILES ', 'InChI', ' InChI ', ' InChI', 'InChI ', 'číslo RTECS', ' číslo RTECS ', ' číslo RTECS', 'číslo RTECS ', 'molární hmotnost', ' molární hmotnost ', ' molární hmotnost', 'molární hmotnost ', 'molární koncentrace', ' molární koncentrace ', ' molární koncentrace', 'molární koncentrace ', 'molární objem', ' molární objem ', ' molární objem', 'molární objem ', 'teplota tání', ' teplota tání ', ' teplota tání', 'teplota tání ', 'teplota varu', ' teplota varu ', ' teplota varu', 'teplota varu ', 'teplota sublimace', ' teplota sublimace ', ' teplota sublimace', 'teplota sublimace ', 'teplota rozkladu', ' teplota rozkladu ', ' teplota rozkladu', 'teplota rozkladu ', 'teplota změny modifikace', ' teplota změny modifikace ', ' teplota změny modifikace', 'teplota změny modifikace ', 'teplota skelného přechodu', ' teplota skelného přechodu ', ' teplota skelného přechodu', 'teplota skelného přechodu ', 'teplota dehydratace', ' teplota dehydratace ', ' teplota dehydratace', 'teplota dehydratace ', 'hustota', ' hustota ', ' hustota', 'hustota ', 'viskozita', ' viskozita ', ' viskozita', 'viskozita ', 'dynamický viskozitní koeficient', ' dynamický viskozitní koeficient ', ' dynamický viskozitní koeficient', 'dynamický viskozitní koeficient ', 'kinematický viskozitní koeficient', ' kinematický viskozitní koeficient ', ' kinematický viskozitní koeficient', 'kinematický viskozitní koeficient ', 'index lomu', ' index lomu ', ' index lomu', 'index lomu ', 'tvrdost', ' tvrdost ', ' tvrdost', 'tvrdost ', 'kritická teplota', ' kritická teplota ', ' kritická teplota', 'kritická teplota ', 'kritický tlak', ' kritický tlak ', ' kritický tlak', 'kritický tlak ', 'kritická hustota', ' kritická hustota ', ' kritická hustota', 'kritická hustota ', 'teplota trojného bodu', ' teplota trojného bodu ', ' teplota trojného bodu', 'teplota trojného bodu ', 'tlak trojného bodu', ' tlak trojného bodu ', ' tlak trojného bodu', 'tlak trojného bodu ', 'pKa', ' pKa ', ' pKa', 'pKa ', 'pKb', ' pKb ', ' pKb', 'pKb ', 'autoionizační konstanta', ' autoionizační konstanta ', ' autoionizační konstanta', 'autoionizační konstanta ', 'rozpustnost', ' rozpustnost ', ' rozpustnost', 'rozpustnost ', 'rozpustnost polární', ' rozpustnost polární ', ' rozpustnost polární', 'rozpustnost polární ', 'rozpustnost nepolární', ' rozpustnost nepolární ', ' rozpustnost nepolární', 'rozpustnost nepolární ', 'součin rozpustnosti', ' součin rozpustnosti ', ' součin rozpustnosti', 'součin rozpustnosti ', 'parametr rozpustnosti', ' parametr rozpustnosti ', ' parametr rozpustnosti', 'parametr rozpustnosti ', 'ebulioskopická konstanta', ' ebulioskopická konstanta ', ' ebulioskopická konstanta', 'ebulioskopická konstanta ', 'kryoskopická konstanta', ' kryoskopická konstanta ', ' kryoskopická konstanta', 'kryoskopická konstanta ', 'relativní permitivita', ' relativní permitivita ', ' relativní permitivita', 'relativní permitivita ', 'tlak páry', ' tlak páry ', ' tlak páry', 'tlak páry ', 'Van der Waalsovy konstanty', ' Van der Waalsovy konstanty ', ' Van der Waalsovy konstanty', 'Van der Waalsovy konstanty ', 'izoelektrický bod', ' izoelektrický bod ', ' izoelektrický bod', 'izoelektrický bod ', 'součinitel elektrické vodivosti', ' součinitel elektrické vodivosti ', ' součinitel elektrické vodivosti', 'součinitel elektrické vodivosti ', 'součinitel tepelné vodivosti', ' součinitel tepelné vodivosti ', ' součinitel tepelné vodivosti', 'součinitel tepelné vodivosti ', 'součinitel elektrického odporu', ' součinitel elektrického odporu ', ' součinitel elektrického odporu', 'součinitel elektrického odporu ', 'součinitel délkové roztažnosti', ' součinitel délkové roztažnosti ', ' součinitel délkové roztažnosti', 'součinitel délkové roztažnosti ', 'součinitel objemové roztažnosti', ' součinitel objemové roztažnosti ', ' součinitel objemové roztažnosti', 'součinitel objemové roztažnosti ', 'měrná magnetická susceptibilita', ' měrná magnetická susceptibilita ', ' měrná magnetická susceptibilita', 'měrná magnetická susceptibilita ', 'měrná vodivost', ' měrná vodivost ', ' měrná vodivost', 'měrná vodivost ', 'měrný elektrický odpor', ' měrný elektrický odpor ', ' měrný elektrický odpor', 'měrný elektrický odpor ', 'ionizační energie', ' ionizační energie ', ' ionizační energie', 'ionizační energie ', 'povrchové napětí', ' povrchové napětí ', ' povrchové napětí', 'povrchové napětí ', 'průměrný výskyt', ' průměrný výskyt ', ' průměrný výskyt', 'průměrný výskyt ', 'rychlost zvuku', ' rychlost zvuku ', ' rychlost zvuku', 'rychlost zvuku ', 'optická otáčivost', ' optická otáčivost ', ' optická otáčivost', 'optická otáčivost ', 'krystalová struktura', ' krystalová struktura ', ' krystalová struktura', 'krystalová struktura ', 'hrana mřížky', ' hrana mřížky ', ' hrana mřížky', 'hrana mřížky ', 'koordinační geometrie', ' koordinační geometrie ', ' koordinační geometrie', 'koordinační geometrie ', 'tvar molekuly', ' tvar molekuly ', ' tvar molekuly', 'tvar molekuly ', 'dipólový moment', ' dipólový moment ', ' dipólový moment', 'dipólový moment ', 'standardní slučovací entalpie', ' standardní slučovací entalpie ', ' standardní slučovací entalpie', 'standardní slučovací entalpie ', 'standardní molární spalná entalpie', ' standardní molární spalná entalpie ', ' standardní molární spalná entalpie', 'standardní molární spalná entalpie ', 'entalpie tání', ' entalpie tání ', ' entalpie tání', 'entalpie tání ', 'entalpie varu', ' entalpie varu ', ' entalpie varu', 'entalpie varu ', 'entalpie rozpouštění', ' entalpie rozpouštění ', ' entalpie rozpouštění', 'entalpie rozpouštění ', 'entalpie sublimace', ' entalpie sublimace ', ' entalpie sublimace', 'entalpie sublimace ', 'entalpie změny modifikace', ' entalpie změny modifikace ', ' entalpie změny modifikace', 'entalpie změny modifikace ', 'standardní molární entropie', ' standardní molární entropie ', ' standardní molární entropie', 'standardní molární entropie ', 'standardní slučovací Gibbsova energie', ' standardní slučovací Gibbsova energie ', ' standardní slučovací Gibbsova energie', 'standardní slučovací Gibbsova energie ', 'měrné teplo', ' měrné teplo ', ' měrné teplo', 'měrné teplo ', 'izobarické měrné teplo', ' izobarické měrné teplo ', ' izobarické měrné teplo', 'izobarické měrné teplo ', 'izochorické měrné teplo', ' izochorické měrné teplo ', ' izochorické měrné teplo', 'izochorické měrné teplo ', 'symboly nebezpečí GHS', ' symboly nebezpečí GHS ', ' symboly nebezpečí GHS', 'symboly nebezpečí GHS ', 'H-věty', ' H-věty ', ' H-věty', 'H-věty ', 'P-věty', ' P-věty ', ' P-věty', 'P-věty ', 'symboly nebezpečí', ' symboly nebezpečí ', ' symboly nebezpečí', 'symboly nebezpečí ', 'R-věty', ' R-věty ', ' R-věty', 'R-věty ', 'S-věty', ' S-věty ', ' S-věty', 'S-věty ', 'NFPA 704', ' NFPA 704 ', ' NFPA 704', 'NFPA 704 ', 'zdraví', ' zdraví ', ' zdraví', 'zdraví ', 'hořlavost', ' hořlavost ', ' hořlavost', 'hořlavost ', 'reaktivita', ' reaktivita ', ' reaktivita', 'reaktivita ', 'ostatní rizika', ' ostatní rizika ', ' ostatní rizika', 'ostatní rizika ', 'teplota vzplanutí', ' teplota vzplanutí ', ' teplota vzplanutí', 'teplota vzplanutí ', 'teplota hoření', ' teplota hoření ', ' teplota hoření', 'teplota hoření ', 'teplota vznícení', ' teplota vznícení ', ' teplota vznícení', 'teplota vznícení ', 'meze výbušnosti', ' meze výbušnosti ', ' meze výbušnosti', 'meze výbušnosti '])}
     return OrderedDict(sorted(data.items(), key=lambda i:keyOrder.get(i[0])))
 
 def addNewSymbols(infobox, newSymbols, objType):
     global cid
+    today = date.today().strftime("%Y-%m-%d")
     infobox = convertToDict(infobox)
-    reference = '<ref name=pubchem_cid_' + str(cid) + '>{{Citace elektronického periodika | titul = ' + ghsTitle + ' | periodikum = pubchem.ncbi.nlm.nih.gov | vydavatel = PubChem | url = https://pubchem.ncbi.nlm.nih.gov/compound/' + str(cid) + ' | jazyk = en | datum přístupu = 2020-01-20 }}</ref>'
-    GHSsymbolsTitle = 'symboly nebezpečí GHS'
-    GHSsymbolsValue = newSymbols + reference
+    reference = '<ref name=pubchem_cid_' + str(cid) + '>{{Citace elektronického periodika | titul = ' + ghsTitle + ' | periodikum = pubchem.ncbi.nlm.nih.gov | vydavatel = PubChem | url = https://pubchem.ncbi.nlm.nih.gov/compound/' + str(cid) + ' | jazyk = en | datum přístupu = ' + today + ' }}</ref>'
+    GHSsymbolsTitle = ' symboly nebezpečí GHS '
+    GHSsymbolsValue = ' ' + newSymbols + reference
     if objType == 2:
         infobox[GHSsymbolsTitle] = GHSsymbolsValue
         #infobox.append(mwparserfromhell.parse(GHSsymbolsTitle + GHSsymbolsValue))
@@ -281,15 +283,27 @@ def removeOldInfobox(file):
     debug("")
 
 
-def constructInfobox(data):
+def constructInfobox(data, addLineEnd = True, addAllSpaces = True):
     Path('data/newInfobox.txt', exist_ok=True).touch()
     newInfoboxFile = open('data/newInfobox.txt', "a+")
     newInfoboxFile.write('{Infobox - chemická sloučenina\n')
     debug("------")
     debug("DATA 2")
     debug(data)
+    if addLineEnd:
+        lineEnd = '\n'
+    else:
+        lineEnd = ''
+    if addAllSpaces:
+        equal = ' = '
+        lineBegin = ' | '
+    else:
+        equal = '='
+        lineBegin = '|'
     for key, value in data.items():
-        newInfoboxFile.write(' | ' + key + ' = ' + value + '\n')
+        # if not value.strip():
+        #     equal = ' ='
+        newInfoboxFile.write(lineBegin + key + equal + value + lineEnd)
     newInfoboxFile.write('}')
     newInfoboxFile.close()
 
@@ -330,11 +344,11 @@ def createNewFile(infobox):
 #def escapeBackslashes(data):
     #return data.replace('')
 
-def addNewInfobox(data, file):
+def addNewInfobox(data, file, addLineEnd = True, addAllSpaces = True):
     debug("------")
     debug("DATA 1")
     debug(data)
-    constructInfobox(data)
+    constructInfobox(data, addLineEnd, addAllSpaces)
     newInfoboxFile = open('data/newInfobox.txt', "r")
     newInfoboxContents = newInfoboxFile.read()
     stagedFile = open(file, "r")
@@ -360,7 +374,7 @@ for member in members:
     createDirectory(dataDirName)
     title = member['title']
     pageid = member['pageid']
-    #title = '2,4-Dinitroanisol'
+    #title = '2-ethylhexanoát_cínatý'
     info('-----------------------------------')
     info("Getting: " + title)
     page = wptools.page(title)
@@ -387,7 +401,7 @@ for member in members:
         # getHeader("data/stagedtext.txt")
         # getFooter("data/stagedtext.txt")
         # createNewFile(infobox)
-        addNewInfobox(infobox, "data/stagedtext.txt")
+        addNewInfobox(infobox, "data/stagedtext.txt", False, False)
         info("Pushing: " + title)
         if automaticPush != True:
             input("Press Enter to continue...")
